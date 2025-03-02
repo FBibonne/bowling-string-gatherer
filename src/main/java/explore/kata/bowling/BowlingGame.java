@@ -3,7 +3,7 @@ package explore.kata.bowling;
 import java.util.ArrayList;
 import java.util.Arrays;
 import java.util.List;
-import java.util.stream.Gatherer;
+import java.util.stream.Collector;
 
 import static java.util.function.Predicate.not;
 
@@ -13,12 +13,11 @@ public record BowlingGame(String line) {
         return Arrays.stream(line.split(" "))
                 .filter(not(String::isBlank))
                 .map(Turn::new)
-                .gather(Gatherer.<Turn, ScoreCalc, Integer>ofSequential(ScoreCalc::new,
-                        (scoreCalc, turn, _) -> scoreCalc.processTurn(turn),
-                        (scoreCalc, downstream) -> downstream.push(scoreCalc.total())
-                ))
-                .mapToInt(Integer::intValue)
-                .sum();
+                .collect(Collector.of(ScoreCalc::new,
+                        ScoreCalc::processTurn,
+                        (s1,s2)-> {throw new RuntimeException("unable to combine "+s1+" and "+s2);},
+                        ScoreCalc::total
+                ));
     }
 
 
@@ -31,23 +30,22 @@ public record BowlingGame(String line) {
             return score;
         }
 
-        public boolean processTurn(Turn turn) {
+        public void processTurn(Turn turn) {
             this.increaseScoreForTry(turn.firstTry());
             if (turn.isStrike()) {
                 this.addBonusScoreForStrike();
             }
             if (turn.isOverAfterFirstTry()) {
-                return true;
+                return;
             }
             increaseScoreForTry(turn.secondTry());
             if (turn.isSpare()) {
                 this.addBonusScoreForSpare();
             }
             if (turn.isOverAfterSecondTry()) {
-                return true;
+                return;
             }
             this.increaseScoreForTry( turn.bonusTry());
-            return true;
         }
 
         private void increaseScoreForTry(Try currenttry) {
